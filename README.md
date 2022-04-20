@@ -6,3 +6,7 @@ Unlocker is a tool for Windows that will remove or unlock files and folders that
 
 # basic
 vs2019 + net2.0 + c#
+
+# usage
+Unlocker.exe -l path  
+Unlocker.exe -c handle:pid
