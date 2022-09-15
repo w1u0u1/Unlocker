@@ -236,7 +236,8 @@ namespace Unlocker
 
                 string strTargetPath = sb.ToString();
 
-                if (strFileName.StartsWith(strTargetPath))
+                //避免混淆HarddiskVolume1\和HarddiskVolume10\此类形况
+                if (strFileName.StartsWith(strTargetPath + "\\"))
                 {
                     strFileName = strFileName.Replace(strTargetPath, strDrivePath.Substring(0, 2));
                     break;
@@ -248,15 +249,17 @@ namespace Unlocker
 
         public static string GetObjectName(IntPtr ipProcess, Win32API.SYSTEM_HANDLE_INFORMATION shHandle)
         {
+            IntPtr ipHandle = IntPtr.Zero;
+            IntPtr ipObjectName = IntPtr.Zero;
             try
             {
-                IntPtr ipHandle = IntPtr.Zero;
+               
                 var objObjectName = new Win32API.OBJECT_NAME_INFORMATION();
-                IntPtr ipObjectName = IntPtr.Zero;
+                
                 int nLength = 0;
                 uint nReturn = 0;
 
-                if (!Win32API.DuplicateHandle(ipProcess, shHandle.HandleValue,Win32API.GetCurrentProcess(), out ipHandle,0, false, Win32API.DuplicateOptions.DUPLICATE_SAME_ACCESS))
+                if (!Win32API.DuplicateHandle(ipProcess, shHandle.HandleValue, Win32API.GetCurrentProcess(), out ipHandle, 0, false, Win32API.DuplicateOptions.DUPLICATE_SAME_ACCESS))
                     return null;
 
                 nLength = 0x200;
@@ -264,7 +267,7 @@ namespace Unlocker
 
                 do
                 {
-                    nReturn = Win32API.NtQueryObject(ipHandle, (int)Win32API.ObjectInformationClass.ObjectNameInformation,ipObjectName, nLength, ref nLength);
+                    nReturn = Win32API.NtQueryObject(ipHandle, (int)Win32API.ObjectInformationClass.ObjectNameInformation, ipObjectName, nLength, ref nLength);
                     if (nReturn == Win32API.STATUS_INFO_LENGTH_MISMATCH)
                     {
                         Marshal.FreeHGlobal(ipObjectName);
@@ -277,14 +280,19 @@ namespace Unlocker
 
                 objObjectName = (Win32API.OBJECT_NAME_INFORMATION)Marshal.PtrToStructure(ipObjectName, objObjectName.GetType());
 
-                Win32API.CloseHandle(ipHandle);
-                Marshal.FreeHGlobal(ipObjectName);
+             
 
                 return objObjectName.Name.Buffer;
             }
             catch (Exception ex)
             {
                 return null;
+            }
+            finally
+            {
+                //修复线程被中止时，句柄没有释放，造成目标程序不能正常关闭
+                Win32API.CloseHandle(ipHandle);
+                Marshal.FreeHGlobal(ipObjectName);
             }
         }
 
